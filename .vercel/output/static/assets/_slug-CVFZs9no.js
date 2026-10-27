@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-BtH0gOTJ.js";import{g as t}from"./index-ZQMTP8iL.js";var n=e(),r=()=>(0,n.jsx)(t,{title:`This essay is not public.`,body:`It may be a draft, or the address may have changed.`});export{r as notFoundComponent};
