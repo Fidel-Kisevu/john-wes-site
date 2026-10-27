@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-BtH0gOTJ.js";import{g as t}from"./index-ZQMTP8iL.js";var n=e(),r=()=>(0,n.jsx)(t,{title:`This message is not public.`,body:`It may still be a draft.`});export{r as notFoundComponent};

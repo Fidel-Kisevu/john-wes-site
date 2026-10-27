@@ -4,3 +4,5 @@ dist/
 .grok/
 .DS_Store
 *.log
+.vercel/
+.node_modules.lock
