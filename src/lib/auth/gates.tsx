@@ -1,6 +1,6 @@
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Navigate } from "@tanstack/react-router";
-import { GROK_PROVIDERS, authEnabled, signIn, signOut } from "./client";
+import { authEnabled, signInWithEmail, signOut, signUpWithEmail } from "./client";
 import { hasGateSessionMarker } from "./gate-session-marker";
 import { resolveSignInGateState } from "./sign-in-gate";
 import { useCurrentUser, useCurrentUserState } from "./use-current-user";
@@ -64,18 +64,60 @@ export function SignInGate({
 }
 
 export function SignInButtons() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSignIn = async () => {
+    if (!email || !password) {
+      setStatus("Enter both your email and password.");
+      return;
+    }
+    setSubmitting(true);
+    setStatus(null);
+    try {
+      await signInWithEmail(email.trim(), password, { callbackURL: "/" });
+      window.location.href = "/";
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Sign-in failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!email || !password) {
+      setStatus("Enter your email and password to create an admin account.");
+      return;
+    }
+    setSubmitting(true);
+    setStatus(null);
+    try {
+      await signUpWithEmail(email.trim(), password, "Admin", { callbackURL: "/" });
+      window.location.href = "/";
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Account creation failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <div className="flex w-full max-w-sm flex-col gap-2">
-      {GROK_PROVIDERS.map((p) => (
-        <button
-          key={p.providerId}
-          type="button"
-          onClick={() => signIn(p.providerId, { callbackURL: "/" })}
-          className="w-full cursor-pointer rounded-md border border-neutral-300 px-4 py-2 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
-        >
-          Continue with {p.label}
-        </button>
-      ))}
+    <div className="flex w-full max-w-sm flex-col gap-3">
+      <label className="text-sm font-medium">Email
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 h-11 w-full border border-neutral-300 px-3 dark:border-neutral-700" />
+      </label>
+      <label className="text-sm font-medium">Password
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 h-11 w-full border border-neutral-300 px-3 dark:border-neutral-700" />
+      </label>
+      {status ? <p className="text-sm text-red-600">{status}</p> : null}
+      <button type="button" disabled={submitting} onClick={() => void handleSignIn()} className="w-full cursor-pointer rounded-md border border-neutral-300 px-4 py-2 hover:bg-neutral-100 disabled:opacity-60 dark:border-neutral-700 dark:hover:bg-neutral-900">
+        {submitting ? "Signing in…" : "Sign in"}
+      </button>
+      <button type="button" disabled={submitting} onClick={() => void handleCreate()} className="w-full cursor-pointer rounded-md border border-neutral-300 bg-white px-4 py-2 hover:bg-neutral-100 disabled:opacity-60 dark:border-neutral-700 dark:hover:bg-neutral-900">
+        Create admin account
+      </button>
     </div>
   );
 }

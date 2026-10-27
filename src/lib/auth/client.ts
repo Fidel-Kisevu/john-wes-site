@@ -1,7 +1,5 @@
-import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { runPreSignInSignOut, runSignOut } from "../../../scripts/sign-out-plan.mjs";
-import { GROK_PROVIDERS } from "./providers";
 
 /**
  * Better Auth client for this React SPA (browser-side).
@@ -18,7 +16,6 @@ import { GROK_PROVIDERS } from "./providers";
  * the visitor stays signed in.
  */
 export const authClient = createAuthClient({
-  plugins: [genericOAuthClient()],
   fetchOptions: {
     onRequest(ctx) {
       const token = getBearerToken();
@@ -37,8 +34,40 @@ export const authClient = createAuthClient({
  */
 export const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
 
-/** The upstream providers to render sign-in buttons for. */
-export { GROK_PROVIDERS };
+/** Social providers are intentionally disabled; all admin sign-ins use email/password. */
+export const GROK_PROVIDERS = [] as const;
+
+export async function signInWithEmail(
+  email: string,
+  password: string,
+  opts: { callbackURL?: string } = {},
+): Promise<void> {
+  const callbackURL = opts.callbackURL ?? "/admin";
+  const { error } = await authClient.signIn.email({
+    email,
+    password,
+    callbackURL,
+  });
+  if (error) throw new Error(error.message ?? "Sign-in failed");
+  window.location.href = callbackURL;
+}
+
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  name: string,
+  opts: { callbackURL?: string } = {},
+): Promise<void> {
+  const callbackURL = opts.callbackURL ?? "/admin";
+  const { error } = await authClient.signUp.email({
+    email,
+    password,
+    name,
+    callbackURL,
+  });
+  if (error) throw new Error(error.message ?? "Account creation failed");
+  window.location.href = callbackURL;
+}
 
 // ── Live-preview bearer token ────────────────────────────────────────────────
 // The embedded preview iframe has partitioned cookies, so we keep the session's
@@ -98,58 +127,13 @@ type PopupMessage = { source: "grok-auth-popup"; token: string | null; error?: s
  */
 export async function signIn(
   providerId: string,
-  opts: { callbackURL?: string; errorCallbackURL?: string } = {},
+  _opts: { callbackURL?: string; errorCallbackURL?: string } = {},
 ): Promise<void> {
-  const callbackURL = opts.callbackURL ?? "/";
-  const errorCallbackURL = opts.errorCallbackURL ?? "/";
-
-  // Open the popup SYNCHRONOUSLY on the user gesture — before any await
-  // (including signOut). Awaiting first drops user-gesture privilege in some
-  // browsers when the opener is a cross-origin live-preview iframe.
-  const popup = inLivePreview() ? openSignInPopup(providerId) : null;
-
-  // Clear any prior session so switching providers actually switches identity.
-  // Bounded because the popup is already open — a request that never settles
-  // would leave it hanging — but bounded PER ENVIRONMENT: only the server can
-  // end a deployed session, so cutting it short at the preview's 1.5s would
-  // start OAuth with the old session still live.
-  await runPreSignInSignOut({
-    livePreview: inLivePreview(),
-    hasBearer: Boolean(getBearerToken()),
-    requestSignOut: () => authClient.signOut(),
-    clearToken: () => setBearerToken(null),
-  });
-
-  if (inLivePreview()) {
-    if (!popup) throw new Error("Pop-up blocked — allow pop-ups for sign-in");
-    const token = await waitForPopupToken(popup);
-    if (!token) throw new Error("Sign-in was cancelled or failed");
-    setBearerToken(token);
-    // Refresh the client session store with the bearer attached (onRequest).
-    // Avoid a full iframe reload when we're already on the destination — that
-    // reload was the slow "still loading after the popup closed" feeling.
-    try {
-      await authClient.getSession();
-    } catch {
-      /* session store will recover on next useSession fetch */
-    }
-    if (typeof window !== "undefined") {
-      const dest = new URL(callbackURL, window.location.origin);
-      const here = window.location;
-      if (dest.origin !== here.origin || dest.pathname !== here.pathname || dest.search !== here.search) {
-        window.location.href = callbackURL;
-      }
-    }
-    return;
+  if (providerId === "email" || providerId === "email-password") {
+    throw new Error("Use signInWithEmail() for email/password auth.");
   }
 
-  const { data, error } = await authClient.signIn.oauth2({
-    providerId,
-    callbackURL,
-    errorCallbackURL,
-  });
-  if (error) throw new Error(error.message ?? "Sign-in failed");
-  if (data?.url) window.location.href = data.url;
+  throw new Error("Social sign-in is disabled. Use the email/password form instead.");
 }
 
 /**
